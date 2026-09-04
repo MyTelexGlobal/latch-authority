@@ -1,0 +1,3 @@
+interface:
+  display_name: "Latch Authority"
+  short_description: "Keep sensitive coding scopes under human control"
