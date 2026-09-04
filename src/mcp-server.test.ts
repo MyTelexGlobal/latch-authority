@@ -125,4 +125,5 @@ describe("LATCH Authority MCP server", () => {
     await second.client.close();
     await second.server.close();
   });
+
 });

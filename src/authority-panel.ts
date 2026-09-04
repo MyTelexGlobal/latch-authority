@@ -50,8 +50,20 @@ export function authorityPanelHtml(): string {
       let nextId = 1;
       let latestState = null;
       let refreshInFlight = false;
+      const standalone = window.parent === window;
 
       function request(method, params) {
+        if (standalone) {
+          return fetch("/api/tools/call", {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ method, params }),
+          }).then(async (response) => {
+            const reply = await response.json();
+            if (!response.ok) throw new Error(reply.error || "Local panel request failed.");
+            return reply;
+          });
+        }
         const id = nextId++;
         window.parent.postMessage({ jsonrpc: "2.0", id, method, params }, "*");
         return new Promise((resolve, reject) => pending.set(id, { resolve, reject }));

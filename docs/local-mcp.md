@@ -50,6 +50,16 @@ The configuration is intentionally workspace-specific. A generic plugin manifest
 
 In an MCP Apps-compatible host, call `render_authority_panel` after reading state to display the panel. The component is optional: all tools work without it.
 
+## Local control-panel preview
+
+For a real, clickable localhost control panel outside an MCP Apps host, run:
+
+```bash
+npm run panel -- --workspace /absolute/path/to/your/project
+```
+
+Then open `http://127.0.0.1:4173`. This is a local testing companion, not a remote service: it binds only to loopback and exposes only the state read, HOLD, release, objection, and exact-approval actions shown in the panel. Stop it with `Ctrl+C`.
+
 ## Boundary
 
 The server protects only writes sent to `apply_proposal`. It cannot block direct shell commands, editor writes, or other agent tools. The panel makes human approval and release interactions independently visible, but server-side caller identity is not established by the panel itself; callers must use approval and release tools only for explicit developer instructions.

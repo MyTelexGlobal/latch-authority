@@ -49,6 +49,8 @@ To run the local stdio MCP server against one workspace, see [Local MCP](docs/lo
 
 In MCP Apps-compatible hosts, call `render_authority_panel` to open a human control panel. It renders the server's current snapshot and offers visible HOLD, release, objection, and exact-approval actions. The tools remain useful in hosts that do not render the component.
 
+For a clickable local preview of that same control surface, run `npm run panel -- --workspace /absolute/path/to/project` and open the localhost URL it prints. This companion is for local testing; the MCP Apps panel remains the native host integration.
+
 ## Licensing
 
 LATCH Authority is licensed under [AGPL-3.0-or-later](LICENSE). A separate commercial license is available for organizations that need rights outside AGPL terms; see [LICENSING.md](LICENSING.md).
