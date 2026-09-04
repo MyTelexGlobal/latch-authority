@@ -4,7 +4,7 @@ import { stat } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { z } from "zod";
 import { AUTHORITY_PANEL_URI, authorityPanelHtml } from "./authority-panel.js";
-import { AuthorityLedger, type ChangeOperation } from "./authority.js";
+import { type AuthorityLedger, type ChangeOperation } from "./authority.js";
 import { GuardedWriter } from "./guarded-writer.js";
 import { JsonAuthorityStateStore } from "./state-store.js";
 
@@ -61,9 +61,8 @@ function authorityState(ledger: AuthorityLedger) {
 }
 
 export function createAuthorityServer(
-  ledger: AuthorityLedger,
-  writer: GuardedWriter,
-  persist: () => Promise<void>,
+  workspaceRoot: string,
+  stateStore: JsonAuthorityStateStore,
 ): McpServer {
   const server = new McpServer(
     { name: "latch-authority", version: "0.4.0" },
@@ -73,11 +72,9 @@ export function createAuthorityServer(
     },
   );
 
-  const mutate = async <T>(operation: () => T): Promise<T> => {
-    const value = operation();
-    await persist();
-    return value;
-  };
+  const readState = async () => authorityState(await stateStore.load());
+  const mutate = async <T>(operation: (ledger: AuthorityLedger) => T | Promise<T>): Promise<T> =>
+    stateStore.transact(operation);
 
   server.registerResource("authority-panel", AUTHORITY_PANEL_URI, {}, async () => ({
     contents: [
@@ -98,7 +95,7 @@ export function createAuthorityServer(
       inputSchema: {},
       annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
     },
-    async () => result(authorityState(ledger)),
+    async () => result(await readState()),
   );
 
   server.registerTool(
@@ -110,7 +107,7 @@ export function createAuthorityServer(
       _meta: { ui: { resourceUri: AUTHORITY_PANEL_URI } },
       annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
     },
-    async () => result(authorityState(ledger)),
+    async () => result(await readState()),
   );
 
   server.registerTool(
@@ -128,7 +125,7 @@ export function createAuthorityServer(
     },
     async ({ scope_id, path, status, reason }) => {
       try {
-        return result(await mutate(() => ledger.declareScope({ id: scope_id, path, status, reason }, "HUMAN")));
+        return result(await mutate((ledger) => ledger.declareScope({ id: scope_id, path, status, reason }, "HUMAN")));
       } catch (error) {
         return failure(error);
       }
@@ -145,7 +142,7 @@ export function createAuthorityServer(
     },
     async ({ scope_id, reason }) => {
       try {
-        return result(await mutate(() => ledger.holdScope(scope_id, reason, "HUMAN")));
+        return result(await mutate((ledger) => ledger.holdScope(scope_id, reason, "HUMAN")));
       } catch (error) {
         return failure(error);
       }
@@ -162,7 +159,7 @@ export function createAuthorityServer(
     },
     async ({ scope_id, reason }) => {
       try {
-        return result(await mutate(() => ledger.releaseScope(scope_id, reason, "HUMAN")));
+        return result(await mutate((ledger) => ledger.releaseScope(scope_id, reason, "HUMAN")));
       } catch (error) {
         return failure(error);
       }
@@ -179,7 +176,7 @@ export function createAuthorityServer(
     },
     async ({ proposal_id, summary, operations }) => {
       try {
-        return result(await mutate(() => ledger.createProposal(proposal_id, operations as ChangeOperation[], summary, "AGENT")));
+        return result(await mutate((ledger) => ledger.createProposal(proposal_id, operations as ChangeOperation[], summary, "AGENT")));
       } catch (error) {
         return failure(error);
       }
@@ -196,8 +193,12 @@ export function createAuthorityServer(
     },
     async ({ proposal_id }) => {
       try {
-        const proposal = await mutate(() => ledger.submitProposal(proposal_id, "AGENT"));
-        return result({ proposal, decision: ledger.evaluateProposal(proposal_id) });
+        return result(
+          await mutate((ledger) => {
+            const proposal = ledger.submitProposal(proposal_id, "AGENT");
+            return { proposal, decision: ledger.evaluateProposal(proposal_id) };
+          }),
+        );
       } catch (error) {
         return failure(error);
       }
@@ -214,7 +215,7 @@ export function createAuthorityServer(
     },
     async ({ proposal_id, reason }) => {
       try {
-        return result(await mutate(() => ledger.objectProposal(proposal_id, reason, "HUMAN")));
+        return result(await mutate((ledger) => ledger.objectProposal(proposal_id, reason, "HUMAN")));
       } catch (error) {
         return failure(error);
       }
@@ -231,7 +232,7 @@ export function createAuthorityServer(
     },
     async ({ proposal_id, reason }) => {
       try {
-        return result(await mutate(() => ledger.approveProposal(proposal_id, reason, "HUMAN")));
+        return result(await mutate((ledger) => ledger.approveProposal(proposal_id, reason, "HUMAN")));
       } catch (error) {
         return failure(error);
       }
@@ -248,9 +249,9 @@ export function createAuthorityServer(
     },
     async ({ proposal_id, contents }) => {
       try {
-        const applied = await writer.applyProposal(proposal_id, contents);
-        await persist();
-        return result(applied);
+        return result(
+          await mutate((ledger) => new GuardedWriter(workspaceRoot, ledger).applyProposal(proposal_id, contents)),
+        );
       } catch (error) {
         return failure(error);
       }
@@ -264,8 +265,7 @@ async function main(): Promise<void> {
   const workspace = workspaceFromArguments(process.argv.slice(2));
   if (!(await stat(workspace)).isDirectory()) throw new Error(`Workspace is not a directory: ${workspace}`);
   const stateStore = new JsonAuthorityStateStore(workspace);
-  const ledger = await stateStore.load();
-  const server = createAuthorityServer(ledger, new GuardedWriter(workspace, ledger), () => stateStore.save(ledger));
+  const server = createAuthorityServer(workspace, stateStore);
   await server.connect(new StdioServerTransport());
 }
 

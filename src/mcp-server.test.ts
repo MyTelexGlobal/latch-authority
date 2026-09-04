@@ -4,7 +4,6 @@ import { join } from "node:path";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { afterEach, describe, expect, it } from "vitest";
-import { AuthorityLedger } from "./authority.js";
 import { AUTHORITY_PANEL_URI, authorityPanelHtml } from "./authority-panel.js";
 import { GuardedWriter, sha256 } from "./guarded-writer.js";
 import { createAuthorityServer } from "./mcp-server.js";
@@ -14,8 +13,7 @@ const temporaryRoots: string[] = [];
 
 async function connectedServer(root: string) {
   const store = new JsonAuthorityStateStore(root);
-  const ledger = await store.load();
-  const server = createAuthorityServer(ledger, new GuardedWriter(root, ledger), () => store.save(ledger));
+  const server = createAuthorityServer(root, store);
   const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
   await server.connect(serverTransport);
   const client = new Client({ name: "latch-test-client", version: "1.0.0" });
@@ -91,5 +89,38 @@ describe("LATCH Authority MCP server", () => {
     expect(saved).not.toContain(next);
     await client.close();
     await server.close();
+  });
+
+  it("reloads and serializes authority state across independent stdio server instances", async () => {
+    const root = await mkdtemp(join(tmpdir(), "latch-mcp-"));
+    temporaryRoots.push(root);
+    const first = await connectedServer(root);
+    const second = await connectedServer(root);
+
+    await Promise.all([
+      call(first.client, "declare_scope", { scope_id: "server", path: "src/server.ts", status: "HELD" }),
+      call(second.client, "declare_scope", { scope_id: "config", path: "src/config.ts", status: "HELD" }),
+    ]);
+
+    const afterBothWrites = await call(second.client, "get_authority_state", {});
+    const scopesAfterBothWrites = (afterBothWrites.structuredContent as { scopes: unknown[] }).scopes;
+    expect(scopesAfterBothWrites).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ id: "server", status: "HELD", revision: 1 }),
+        expect.objectContaining({ id: "config", status: "HELD", revision: 1 }),
+      ]),
+    );
+
+    await call(first.client, "release_scope", { scope_id: "server" });
+    const secondServerView = await call(second.client, "get_authority_state", {});
+    const scopesAfterRelease = (secondServerView.structuredContent as { scopes: unknown[] }).scopes;
+    expect(scopesAfterRelease).toEqual(
+      expect.arrayContaining([expect.objectContaining({ id: "server", status: "OPEN", revision: 2 })]),
+    );
+
+    await first.client.close();
+    await first.server.close();
+    await second.client.close();
+    await second.server.close();
   });
 });

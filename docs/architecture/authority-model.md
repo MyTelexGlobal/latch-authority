@@ -60,7 +60,7 @@ The MCP Apps panel is a view over the server-owned authority state, not a second
 
 The authority map, proposal records, approvals, and audit events belong to the local workspace, not to the source repository.
 
-Audit events record the actor type, action, affected paths, proposal identifier, and content hash. They do not require private model reasoning or a copy of source code. The local adapter exports a JSON snapshot to `.latch-authority/state.json`; it stores no proposal source text, and the guarded writer excludes this internal directory from proposal targets. The current adapter writes metadata atomically but cannot provide crash-consistent atomicity across both metadata and multiple filesystem operations.
+Audit events record the actor type, action, affected paths, proposal identifier, and content hash. They do not require private model reasoning or a copy of source code. The local adapter exports a JSON snapshot to `.latch-authority/state.json`; it stores no proposal source text, and the guarded writer excludes this internal directory from proposal targets. Each mutation takes a short-lived local lock, reloads the durable ledger, and atomically replaces the snapshot, so independent stdio server instances cannot overwrite each other's authority decisions. The current adapter still cannot provide crash-consistent atomicity across both metadata and multiple filesystem operations.
 
 ## Initial object model
 
