@@ -162,6 +162,9 @@ export function authorityPanelHtml(): string {
         const initial = message.params?.toolResult?.structuredContent || message.params?.toolOutput?.structuredContent || message.params?.structuredContent;
         if ((message.method === "ui/initialize" || message.method === "ui/notifications/tool-result") && initial) render(initial);
       }, { passive: true });
+      // The host may mount this iframe after its initial focus event. Fetch once on
+      // mount so the panel never depends on the user pressing Refresh first.
+      queueMicrotask(() => refresh().catch((error) => say(errorText(error), "error")));
     </script>
   </body>
 </html>`;

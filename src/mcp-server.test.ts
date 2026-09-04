@@ -40,6 +40,7 @@ describe("LATCH Authority MCP server", () => {
     expect(html).toContain('"ui/notifications/tool-result"');
     expect(html).toContain('"tools/call"');
     expect(html).toContain('"visibilitychange"');
+    expect(html).toContain("queueMicrotask");
     expect(html).not.toContain("window.prompt");
   });
 
