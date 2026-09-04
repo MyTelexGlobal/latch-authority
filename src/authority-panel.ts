@@ -49,6 +49,7 @@ export function authorityPanelHtml(): string {
       const pending = new Map();
       let nextId = 1;
       let latestState = null;
+      let refreshInFlight = false;
 
       function request(method, params) {
         const id = nextId++;
@@ -132,14 +133,24 @@ export function authorityPanelHtml(): string {
         say("Authority state is current.", "ok");
       }
       async function refresh() {
-        const reply = await request("tools/call", { name: "get_authority_state", arguments: {} });
-        const failed = toolError(reply);
-        if (failed) throw new Error(failed);
-        const state = toolState(reply);
-        if (!state) throw new Error("The host returned no authority state.");
-        render(state);
+        if (refreshInFlight) return;
+        refreshInFlight = true;
+        try {
+          const reply = await request("tools/call", { name: "get_authority_state", arguments: {} });
+          const failed = toolError(reply);
+          if (failed) throw new Error(failed);
+          const state = toolState(reply);
+          if (!state) throw new Error("The host returned no authority state.");
+          render(state);
+        } finally {
+          refreshInFlight = false;
+        }
       }
       document.getElementById("refresh").onclick = () => refresh().catch((error) => say(errorText(error), "error"));
+      window.addEventListener("focus", () => refresh().catch((error) => say(errorText(error), "error")));
+      document.addEventListener("visibilitychange", () => {
+        if (!document.hidden) refresh().catch((error) => say(errorText(error), "error"));
+      });
       window.addEventListener("message", (event) => {
         if (event.source !== window.parent) return;
         const message = event.data;
