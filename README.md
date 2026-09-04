@@ -28,7 +28,7 @@ The original WebMCP deal-board demonstration is available at [LATCH](https://lat
 1. **P0 — authority protocol:** complete.
 2. **P1 — proposal-based authority core:** complete; the local MCP adapter persists metadata and audit snapshots.
 3. **P2 — guarded writes:** complete for routed writes; the local MCP server rejects held, stale, incomplete, and hash-mismatched change sets before any write runs.
-4. **P3 — visible control surface:** a lightweight human control surface for scope state, proposals, objections, approvals, and releases.
+4. **P3 — visible control surface:** complete as an MCP Apps panel for scope state, proposals, objections, approvals, and releases.
 5. **P4 — validation:** local installation, demo project, automated tests, and clear limits.
 
 ## Honest boundary
@@ -46,6 +46,8 @@ npm test
 ```
 
 To run the local stdio MCP server against one workspace, see [Local MCP](docs/local-mcp.md).
+
+In MCP Apps-compatible hosts, call `render_authority_panel` to open a human control panel. It renders the server's current snapshot and offers visible HOLD, release, objection, and exact-approval actions. The tools remain useful in hosts that do not render the component.
 
 ## Licensing
 

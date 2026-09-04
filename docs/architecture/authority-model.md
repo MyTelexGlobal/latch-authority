@@ -52,6 +52,10 @@ The first enforcement adapter is a guarded MCP writer. Before changing a file, i
 
 This boundary is deliberate: LATCH Authority reports its actual protection level rather than presenting a cooperative workflow as universal sandboxing.
 
+## Human control surface
+
+The MCP Apps panel is a view over the server-owned authority state, not a second source of truth. It reads a fresh snapshot and invokes the same server tools for HOLD, release, objection, and exact approval. A host that does not render the panel still has the complete tool workflow. The panel makes a human decision visible; it does not claim to prove the identity of a caller that invokes an MCP tool outside the panel.
+
 ## Local state and audit
 
 The authority map, proposal records, approvals, and audit events belong to the local workspace, not to the source repository.

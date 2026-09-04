@@ -46,7 +46,10 @@ The configuration is intentionally workspace-specific. A generic plugin manifest
 - `object_proposal` records feedback on a proposal without globally locking its path.
 - `approve_proposal` creates a one-shot exception for a specific blocked proposal.
 - `apply_proposal` writes only a policy-authorized proposal whose submitted file content matches its recorded SHA-256 hashes.
+- `render_authority_panel` returns an MCP Apps component for inspecting scopes and making visible human decisions.
+
+In an MCP Apps-compatible host, call `render_authority_panel` after reading state to display the panel. The component is optional: all tools work without it.
 
 ## Boundary
 
-The server protects only writes sent to `apply_proposal`. It cannot block direct shell commands, editor writes, or other agent tools. A later control surface will make human approval and release interactions independently visible; until then, callers must use the approval and release tools only for explicit developer instructions.
+The server protects only writes sent to `apply_proposal`. It cannot block direct shell commands, editor writes, or other agent tools. The panel makes human approval and release interactions independently visible, but server-side caller identity is not established by the panel itself; callers must use approval and release tools only for explicit developer instructions.

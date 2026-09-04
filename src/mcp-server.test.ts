@@ -5,6 +5,7 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { afterEach, describe, expect, it } from "vitest";
 import { AuthorityLedger } from "./authority.js";
+import { AUTHORITY_PANEL_URI } from "./authority-panel.js";
 import { GuardedWriter, sha256 } from "./guarded-writer.js";
 import { createAuthorityServer } from "./mcp-server.js";
 import { JsonAuthorityStateStore } from "./state-store.js";
@@ -37,7 +38,13 @@ describe("LATCH Authority MCP server", () => {
     const { client, server } = await connectedServer(root);
 
     const tools = await client.listTools();
-    expect(tools.tools.map((tool) => tool.name)).toEqual(expect.arrayContaining(["get_authority_state", "create_proposal", "apply_proposal"]));
+    expect(tools.tools.map((tool) => tool.name)).toEqual(
+      expect.arrayContaining(["get_authority_state", "render_authority_panel", "create_proposal", "apply_proposal"]),
+    );
+    const resource = await client.readResource({ uri: AUTHORITY_PANEL_URI });
+    expect(resource.contents[0]).toMatchObject({ uri: AUTHORITY_PANEL_URI, mimeType: "text/html;profile=mcp-app" });
+    const panel = await call(client, "render_authority_panel", {});
+    expect(panel.structuredContent).toMatchObject({ decisions: [] });
 
     const next = "export const ready = true;\n";
     await call(client, "create_proposal", {

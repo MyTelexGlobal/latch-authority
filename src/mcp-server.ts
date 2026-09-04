@@ -3,6 +3,7 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { stat } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { z } from "zod";
+import { AUTHORITY_PANEL_URI, authorityPanelHtml } from "./authority-panel.js";
 import { AuthorityLedger, type ChangeOperation } from "./authority.js";
 import { GuardedWriter } from "./guarded-writer.js";
 import { JsonAuthorityStateStore } from "./state-store.js";
@@ -43,13 +44,29 @@ function workspaceFromArguments(args: string[]): string {
   return workspace;
 }
 
+function authorityState(ledger: AuthorityLedger) {
+  const snapshot = ledger.snapshot();
+  return {
+    ...snapshot,
+    decisions: snapshot.proposals.map((proposal) => {
+      const decision = ledger.evaluateProposal(proposal.id);
+      return {
+        proposalId: proposal.id,
+        allowed: decision.allowed,
+        requiresApproval: decision.allowed ? decision.requiresApproval : false,
+        blockingScopeIds: decision.allowed ? [] : decision.blockingScopes.map((scope) => scope.id),
+      };
+    }),
+  };
+}
+
 export function createAuthorityServer(
   ledger: AuthorityLedger,
   writer: GuardedWriter,
   persist: () => Promise<void>,
 ): McpServer {
   const server = new McpServer(
-    { name: "latch-authority", version: "0.3.0" },
+    { name: "latch-authority", version: "0.4.0" },
     {
       instructions:
         "Read authority state before proposing writes. HELD scopes are never reopened implicitly. An APPROVED proposal is a one-shot exception for its exact fingerprint.",
@@ -62,6 +79,17 @@ export function createAuthorityServer(
     return value;
   };
 
+  server.registerResource("authority-panel", AUTHORITY_PANEL_URI, {}, async () => ({
+    contents: [
+      {
+        uri: AUTHORITY_PANEL_URI,
+        mimeType: "text/html;profile=mcp-app",
+        text: authorityPanelHtml(),
+        _meta: { ui: { prefersBorder: true } },
+      },
+    ],
+  }));
+
   server.registerTool(
     "get_authority_state",
     {
@@ -70,7 +98,19 @@ export function createAuthorityServer(
       inputSchema: {},
       annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
     },
-    async () => result(ledger.snapshot()),
+    async () => result(authorityState(ledger)),
+  );
+
+  server.registerTool(
+    "render_authority_panel",
+    {
+      title: "Render authority panel",
+      description: "Show the human control panel for the current authority state. Call get_authority_state first when fresh state matters.",
+      inputSchema: {},
+      _meta: { ui: { resourceUri: AUTHORITY_PANEL_URI } },
+      annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
+    },
+    async () => result(authorityState(ledger)),
   );
 
   server.registerTool(
