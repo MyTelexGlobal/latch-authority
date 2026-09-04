@@ -20,6 +20,7 @@ export function authorityPanelHtml(): string {
       button:hover { border-color: #0a9c6c; color: #0a9c6c; }
       button.warn:hover { border-color: #c27a00; color: #c27a00; }
       button.danger:hover { border-color: #c74242; color: #c74242; }
+      input { min-width: 180px; flex: 1 1 180px; border: 1px solid color-mix(in srgb, CanvasText 28%, Canvas); border-radius: 7px; background: Canvas; color: CanvasText; padding: 6px 9px; font: inherit; font-size: 11px; }
       .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 10px; }
       .card { border: 1px solid color-mix(in srgb, CanvasText 18%, Canvas); border-radius: 10px; padding: 11px; min-width: 0; }
       .line { display: flex; justify-content: space-between; gap: 8px; align-items: flex-start; }
@@ -55,6 +56,25 @@ export function authorityPanelHtml(): string {
         return new Promise((resolve, reject) => pending.set(id, { resolve, reject }));
       }
       function say(text, kind = "") { notice.textContent = text; notice.className = kind; }
+      function errorText(error) {
+        if (error instanceof Error && error.message) return error.message;
+        if (error && typeof error === "object") {
+          const value = error;
+          const text = value.message || value.data?.message || value.data?.content?.[0]?.text || value.content?.[0]?.text;
+          if (typeof text === "string" && text) return text;
+          try { return JSON.stringify(value); } catch { return "Tool call failed."; }
+        }
+        return String(error || "Tool call failed.");
+      }
+      function toolError(reply) {
+        if (!reply) return undefined;
+        const value = reply.result || reply;
+        return value.isError ? value.content?.[0]?.text || "Tool call failed." : undefined;
+      }
+      function toolState(reply) {
+        const value = reply?.result || reply;
+        return value?.structuredContent || value?.data?.structuredContent;
+      }
       function clear(element) { while (element.firstChild) element.removeChild(element.firstChild); }
       function empty(element, text) { const node = document.createElement("div"); node.className = "empty"; node.textContent = text; element.appendChild(node); }
       function badge(status) { const node = document.createElement("span"); node.className = "status " + status.toLowerCase(); node.textContent = status; return node; }
@@ -66,12 +86,14 @@ export function authorityPanelHtml(): string {
         try {
           say("Working…");
           const reply = await request("tools/call", { name, arguments: args });
-          if (reply && reply.isError) throw new Error(reply.content?.[0]?.text || "Tool call failed.");
+          const failed = toolError(reply);
+          if (failed) throw new Error(failed);
+          const state = toolState(reply);
+          if (state?.scopes && state?.proposals) render(state);
           await refresh();
           say("Authority state updated.", "ok");
-        } catch (error) { say(error instanceof Error ? error.message : String(error), "error"); }
+        } catch (error) { say(errorText(error), "error"); }
       }
-      function ask(label) { return window.prompt(label) || undefined; }
       function render(state) {
         latestState = state;
         clear(scopes); clear(proposals);
@@ -81,8 +103,8 @@ export function authorityPanelHtml(): string {
           const path = document.createElement("div"); path.className = "path"; path.textContent = scope.path; line.append(path, badge(scope.status)); node.appendChild(line);
           addLine(node, "id: ", scope.id); addLine(node, "revision: ", String(scope.revision)); if (scope.reason) addLine(node, "reason: ", scope.reason);
           const area = actions(node);
-          if (scope.status === "OPEN") area.appendChild(button("HOLD", "warn", () => callTool("hold_scope", { scope_id: scope.id, reason: ask("Reason for this hold (optional):") })));
-          else area.appendChild(button("RELEASE", "", () => callTool("release_scope", { scope_id: scope.id, reason: ask("Reason for this release (optional):") })));
+          if (scope.status === "OPEN") area.appendChild(button("HOLD", "warn", () => callTool("hold_scope", { scope_id: scope.id })));
+          else area.appendChild(button("RELEASE", "", () => callTool("release_scope", { scope_id: scope.id })));
           scopes.appendChild(node);
         }
         if (!state?.proposals?.length) empty(proposals, "No proposals yet.");
@@ -95,9 +117,14 @@ export function authorityPanelHtml(): string {
           const area = actions(node);
           const decision = (state.decisions || []).find((item) => item.proposalId === proposal.id);
           if (proposal.status === "PENDING") {
-            area.appendChild(button("OBJECT", "danger", () => { const reason = ask("Why object to this proposal?"); if (reason) callTool("object_proposal", { proposal_id: proposal.id, reason }); }));
+            const reason = document.createElement("input"); reason.placeholder = "Reason required to object"; reason.setAttribute("aria-label", "Reason for objecting to " + proposal.id); area.appendChild(reason);
+            area.appendChild(button("OBJECT", "danger", () => {
+              const text = reason.value.trim();
+              if (!text) { say("Enter a reason before objecting.", "error"); reason.focus(); return; }
+              callTool("object_proposal", { proposal_id: proposal.id, reason: text });
+            }));
             if (!decision?.allowed && decision?.blockingScopeIds?.length) {
-              area.appendChild(button("APPROVE EXACT", "", () => callTool("approve_proposal", { proposal_id: proposal.id, reason: ask("Approval note (optional):") })));
+              area.appendChild(button("APPROVE EXACT", "", () => callTool("approve_proposal", { proposal_id: proposal.id })));
             }
           }
           proposals.appendChild(node);
@@ -106,10 +133,13 @@ export function authorityPanelHtml(): string {
       }
       async function refresh() {
         const reply = await request("tools/call", { name: "get_authority_state", arguments: {} });
-        if (reply?.isError) throw new Error(reply.content?.[0]?.text || "Unable to read authority state.");
-        render(reply?.structuredContent);
+        const failed = toolError(reply);
+        if (failed) throw new Error(failed);
+        const state = toolState(reply);
+        if (!state) throw new Error("The host returned no authority state.");
+        render(state);
       }
-      document.getElementById("refresh").onclick = () => refresh().catch((error) => say(String(error), "error"));
+      document.getElementById("refresh").onclick = () => refresh().catch((error) => say(errorText(error), "error"));
       window.addEventListener("message", (event) => {
         if (event.source !== window.parent) return;
         const message = event.data;
@@ -118,7 +148,8 @@ export function authorityPanelHtml(): string {
           const deferred = pending.get(message.id); pending.delete(message.id);
           if (message.error) deferred.reject(message.error); else deferred.resolve(message.result); return;
         }
-        if (message.method === "ui/notifications/tool-result") render(message.params?.structuredContent);
+        const initial = message.params?.toolResult?.structuredContent || message.params?.toolOutput?.structuredContent || message.params?.structuredContent;
+        if ((message.method === "ui/initialize" || message.method === "ui/notifications/tool-result") && initial) render(initial);
       }, { passive: true });
     </script>
   </body>

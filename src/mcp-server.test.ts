@@ -5,7 +5,7 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { afterEach, describe, expect, it } from "vitest";
 import { AuthorityLedger } from "./authority.js";
-import { AUTHORITY_PANEL_URI } from "./authority-panel.js";
+import { AUTHORITY_PANEL_URI, authorityPanelHtml } from "./authority-panel.js";
 import { GuardedWriter, sha256 } from "./guarded-writer.js";
 import { createAuthorityServer } from "./mcp-server.js";
 import { JsonAuthorityStateStore } from "./state-store.js";
@@ -32,6 +32,18 @@ afterEach(async () => {
 });
 
 describe("LATCH Authority MCP server", () => {
+  it("ships a syntactically valid, portable MCP Apps panel without browser prompts", () => {
+    const html = authorityPanelHtml();
+    const script = html.match(/<script>([\s\S]*)<\/script>/)?.[1];
+
+    expect(script).toBeTruthy();
+    expect(() => new Function(script!)).not.toThrow();
+    expect(html).toContain('"ui/initialize"');
+    expect(html).toContain('"ui/notifications/tool-result"');
+    expect(html).toContain('"tools/call"');
+    expect(html).not.toContain("window.prompt");
+  });
+
   it("lists focused tools and applies an open proposal through the guarded writer", async () => {
     const root = await mkdtemp(join(tmpdir(), "latch-mcp-"));
     temporaryRoots.push(root);
