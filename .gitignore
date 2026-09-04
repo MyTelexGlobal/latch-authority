@@ -1,4 +1,5 @@
 node_modules/
+.latch-authority/
 coverage/
 dist/
 .DS_Store

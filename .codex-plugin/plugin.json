@@ -1,6 +1,6 @@
 {
   "name": "latch-authority",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Per-scope, revocable authority for agent-assisted coding.",
   "author": {
     "name": "Yury Myshinskiy"
@@ -12,7 +12,7 @@
     "longDescription": "LATCH Authority helps a developer declare sensitive files and paths as held while an agent continues with open work.",
     "developerName": "Yury Myshinskiy",
     "category": "Productivity",
-    "capabilities": [],
+    "capabilities": ["Write"],
     "defaultPrompt": "Help me define authority scopes for this coding task before making changes."
   }
 }

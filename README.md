@@ -13,9 +13,9 @@ This release contains a Codex skill and a tested, in-memory proposal-based autho
 - A human can approve one exact blocked proposal without broadly reopening a held scope.
 - Proposal records, SHA-256 content fingerprints, and an append-only audit sequence can be serialized into a local snapshot.
 
-The core is intentionally separate from filesystem I/O. It is not yet the guarded writer.
+The core is intentionally separate from filesystem I/O. A local guarded writer now applies only routed proposals whose full change sets pass policy and SHA-256 content checks.
 
-The plugin is **not yet a technical write barrier**. It cannot intercept arbitrary terminal, editor, or patch operations. The next milestone is a local guarded-write MCP tool that reads the authority map and rejects writes to held scopes.
+The guarded writer is a technical barrier for writes deliberately routed through its MCP tool. It cannot intercept arbitrary terminal, editor, or patch operations.
 
 ## Why this exists
 
@@ -26,14 +26,14 @@ The original WebMCP deal-board demonstration is available at [LATCH](https://lat
 ## Development plan
 
 1. **P0 — authority protocol:** complete.
-2. **P1 — proposal-based authority core:** complete in memory; a local adapter will persist snapshots.
-3. **P2 — guarded writes:** a local MCP tool that rejects change sets targeting held scopes before any operation runs.
-4. **P3 — visible control surface:** a lightweight panel that shows scope state, proposals, and releases.
+2. **P1 — proposal-based authority core:** complete; the local MCP adapter persists metadata and audit snapshots.
+3. **P2 — guarded writes:** complete for routed writes; the local MCP server rejects held, stale, incomplete, and hash-mismatched change sets before any write runs.
+4. **P3 — visible control surface:** a lightweight human control surface for scope state, proposals, objections, approvals, and releases.
 5. **P4 — validation:** local installation, demo project, automated tests, and clear limits.
 
 ## Honest boundary
 
-Only tools that deliberately route writes through the authority layer can be technically guarded. A future version may integrate with host-level hooks where the client offers them; that is not implemented or promised here.
+Only tools that deliberately route writes through the authority layer can be technically guarded. For a multi-file proposal, the writer verifies every expected hash before writing; on an in-process failure it attempts rollback. This is not a crash-safe filesystem transaction and does not intercept direct writes made outside the server. A future version may integrate with host-level hooks where the client offers them; that is not implemented or promised here.
 
 ## Local development
 
@@ -45,7 +45,7 @@ npm run typecheck
 npm test
 ```
 
-The repository is an early, standalone plugin project. Packaging it into a local Codex marketplace comes after the guarded-write MCP server is implemented and tested.
+To run the local stdio MCP server against one workspace, see [Local MCP](docs/local-mcp.md).
 
 ## Licensing
 

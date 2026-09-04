@@ -48,7 +48,7 @@ One-shot approval applies only that known proposal. The scope remains `HELD` aft
 
 The policy engine is independent of the agent host. It decides whether a proposal is allowed; it does not perform I/O itself.
 
-The first enforcement adapter is a guarded MCP writer. It can guarantee policy enforcement only for write operations routed through that adapter. Raw shell commands, editor writes, and unrelated tools cannot be intercepted by this project unless a host offers a trusted native enforcement hook.
+The first enforcement adapter is a guarded MCP writer. Before changing a file, it verifies that every operation in the proposal is current and that replacement bytes match the proposal's SHA-256 hash. It can guarantee policy enforcement only for write operations routed through that adapter. Raw shell commands, editor writes, and unrelated tools cannot be intercepted by this project unless a host offers a trusted native enforcement hook.
 
 This boundary is deliberate: LATCH Authority reports its actual protection level rather than presenting a cooperative workflow as universal sandboxing.
 
@@ -56,7 +56,7 @@ This boundary is deliberate: LATCH Authority reports its actual protection level
 
 The authority map, proposal records, approvals, and audit events belong to the local workspace, not to the source repository.
 
-Audit events record the actor type, action, affected paths, proposal identifier, and content hash. They do not require private model reasoning or a copy of source code. The core can export and restore a validated JSON snapshot; the future state-store adapter must make persistence and filesystem writes atomic so a failed write cannot leave policy and workspace state out of sync.
+Audit events record the actor type, action, affected paths, proposal identifier, and content hash. They do not require private model reasoning or a copy of source code. The local adapter exports a JSON snapshot to `.latch-authority/state.json`; it stores no proposal source text, and the guarded writer excludes this internal directory from proposal targets. The current adapter writes metadata atomically but cannot provide crash-consistent atomicity across both metadata and multiple filesystem operations.
 
 ## Initial object model
 
