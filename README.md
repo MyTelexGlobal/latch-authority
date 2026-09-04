@@ -6,13 +6,14 @@ The developer can hold a sensitive scope—such as an authentication path, deplo
 
 ## Status
 
-The initial release contains a Codex skill and a small, tested in-memory path-policy foundation. The next core milestone implements the proposal-based model described in the [authority model](docs/architecture/authority-model.md):
+This release contains a Codex skill and a tested, in-memory proposal-based authority core:
 
 - A scope is `OPEN` or `HELD`.
-- A proposal is evaluated as a complete change set.
-- A human can approve one exact proposal without broadly reopening a held scope.
+- A proposal is evaluated as one atomic change set.
+- A human can approve one exact blocked proposal without broadly reopening a held scope.
+- Proposal records, SHA-256 content fingerprints, and an append-only audit sequence can be serialized into a local snapshot.
 
-The existing foundation resolves repository-relative paths and is covered by automated tests. It is not yet the guarded writer.
+The core is intentionally separate from filesystem I/O. It is not yet the guarded writer.
 
 The plugin is **not yet a technical write barrier**. It cannot intercept arbitrary terminal, editor, or patch operations. The next milestone is a local guarded-write MCP tool that reads the authority map and rejects writes to held scopes.
 
@@ -25,8 +26,8 @@ The original WebMCP deal-board demonstration is available at [LATCH](https://lat
 ## Development plan
 
 1. **P0 — authority protocol:** complete.
-2. **P1 — proposal-based authority core:** scopes, proposals, one-shot approvals, persistence, and audit.
-3. **P2 — guarded writes:** a local MCP tool that rejects change sets targeting held scopes.
+2. **P1 — proposal-based authority core:** complete in memory; a local adapter will persist snapshots.
+3. **P2 — guarded writes:** a local MCP tool that rejects change sets targeting held scopes before any operation runs.
 4. **P3 — visible control surface:** a lightweight panel that shows scope state, proposals, and releases.
 5. **P4 — validation:** local installation, demo project, automated tests, and clear limits.
 

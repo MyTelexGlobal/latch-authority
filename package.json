@@ -1,6 +1,6 @@
 {
   "name": "@latch/authority",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "type": "module",
   "license": "AGPL-3.0-or-later",
@@ -10,6 +10,7 @@
     "test": "vitest run"
   },
   "devDependencies": {
+    "@types/node": "^26.4.1",
     "typescript": "^5.9.2",
     "vitest": "^4.1.11"
   }

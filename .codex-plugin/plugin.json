@@ -1,6 +1,6 @@
 {
   "name": "latch-authority",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Per-scope, revocable authority for agent-assisted coding.",
   "author": {
     "name": "Yury Myshinskiy"

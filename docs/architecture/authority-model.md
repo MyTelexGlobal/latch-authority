@@ -42,7 +42,7 @@ The policy engine evaluates the complete set before any operation runs.
 - If any operation touches a `HELD` scope, the change set is blocked before any write occurs.
 - A human can approve an exact blocked proposal as a one-shot exception. The proposal's content hash is part of that approval.
 
-One-shot approval applies only that known proposal. The scope remains `HELD` afterward. Broadly reopening a scope is a separate, explicit human action.
+One-shot approval applies only that known proposal. The scope remains `HELD` afterward. The approval also records the current revision of each held scope, so releasing and holding the same path again invalidates the prior exception. Broadly reopening a scope is a separate, explicit human action.
 
 ## Authority boundary
 
@@ -56,7 +56,7 @@ This boundary is deliberate: LATCH Authority reports its actual protection level
 
 The authority map, proposal records, approvals, and audit events belong to the local workspace, not to the source repository.
 
-Audit events record the actor type, action, affected paths, proposal identifier, and content hash. They do not require private model reasoning or a copy of source code. The state store must support atomic updates so that a failed write cannot leave policy and workspace state out of sync.
+Audit events record the actor type, action, affected paths, proposal identifier, and content hash. They do not require private model reasoning or a copy of source code. The core can export and restore a validated JSON snapshot; the future state-store adapter must make persistence and filesystem writes atomic so a failed write cannot leave policy and workspace state out of sync.
 
 ## Initial object model
 
